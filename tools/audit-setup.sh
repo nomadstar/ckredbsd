@@ -5,7 +5,43 @@
 set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-PREFERRED_MODEL="${CKRED_AUDIT_MODEL:-qwen2.5-coder:14b}"
+PREFERRED_MODEL="${CKRED_AUDIT_MODEL:-}"
+
+# Detect the local GPU so we can choose an appropriate Ollama model.
+detect_gpu() {
+    if ! command -v lspci &>/dev/null; then
+        return 1
+    fi
+
+    GPU_INFO=$(lspci -nn | grep -E 'VGA|3D' | tr '[:upper:]' '[:lower:]' || true)
+    if echo "${GPU_INFO}" | grep -q 'amd'; then
+        echo amd
+        return 0
+    elif echo "${GPU_INFO}" | grep -q 'nvidia'; then
+        echo nvidia
+        return 0
+    elif echo "${GPU_INFO}" | grep -q 'intel'; then
+        echo intel
+        return 0
+    fi
+
+    return 1
+}
+
+select_model_by_gpu() {
+    local gpu="$1"
+    case "${gpu}" in
+        amd|nvidia)
+            echo "qwen2.5-coder:14b"
+            ;;
+        intel)
+            echo "qwen2.5-coder:7b"
+            ;;
+        *)
+            echo "qwen2.5-coder:7b"
+            ;;
+    esac
+}
 
 echo "╔══════════════════════════════════════════╗"
 echo "║   CkredBSD — AI Audit Pipeline Setup    ║"
