@@ -116,12 +116,14 @@ echo "      Selected model: ${PREFERRED_MODEL}"
 
 echo ""
 # Check if GPU is being used
-if ollama run --help 2>/dev/null | grep -q "gpu"; then
-    echo "      GPU acceleration: available"
+if ollama run --help 2>/dev/null | grep -q "--gpu"; then
+    echo "      GPU acceleration: available (ollama supports --gpu)"
+    OLLAMA_GPU_SUPPORTED=true
 else
-    echo "      WARNING: GPU acceleration may not be configured"
+    echo "      WARNING: installed Ollama does not advertise --gpu support"
+    OLLAMA_GPU_SUPPORTED=false
     if [ "${PREFERRED_GPU}" = "nvidia" ]; then
-        echo "      Detected NVIDIA backend, pero Ollama no reporta GPU en --help."
+        echo "      Detected NVIDIA backend, pero Ollama no reporta --gpu en --help."
         echo "      Asegúrate de usar una versión de Ollama con soporte CUDA/NVIDIA y que nvidia-smi funcione."
     elif [ "${PREFERRED_GPU}" = "amd" ]; then
         echo "      Para tarjetas AMD, asegúrate de que ROCm esté instalado y HSA_OVERRIDE_GFX_VERSION configurado."
@@ -155,6 +157,7 @@ CKRED_OPENBSD_SRC="${REPO_ROOT}/src/openbsd"
 CKRED_AUDIT_LOGS="${REPO_ROOT}/audit/logs"
 CKRED_CHUNK_SIZE=400        # lines per chunk sent to AI
 CKRED_PRIORITY_FIRST=true   # audit high-priority subsystems first
+CKRED_OLLAMA_GPU_SUPPORTED=${OLLAMA_GPU_SUPPORTED:-false}
 EOF
 
 mkdir -p "${REPO_ROOT}/audit/logs"
