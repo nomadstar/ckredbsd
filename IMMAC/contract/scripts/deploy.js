@@ -3,8 +3,8 @@ async function main() {
   console.log('Deploying with', deployer.address);
   const IMMAC = await ethers.getContractFactory('IMMAC');
   const immac = await IMMAC.deploy();
-  await immac.deployed();
-  console.log('IMMAC deployed to', immac.address);
+  await immac.waitForDeployment();
+  console.log('IMMAC deployed to', await immac.getAddress());
 }
 
 main().catch((error) => {

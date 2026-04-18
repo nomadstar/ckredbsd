@@ -3,22 +3,23 @@ IMMAC — Smart Contract MVP
 Este directorio contiene un MVP del contrato inteligente IMMAC (registro + verificación básica + cálculo/claim).
 
 Requisitos
-- Node.js (16+)
+- Node.js LTS (22.x recomendado por Hardhat)
+- pnpm (o npm)
 
 Instalación
 ```bash
 cd IMMAC/contract
-npm install
+pnpm install
 ```
 
 Tests
 ```bash
-npm test
+pnpm test
 ```
 
 Uso rápido (deploy local con Hardhat)
 ```bash
-npx hardhat run --network localhost scripts/deploy.js
+pnpm hardhat run --network localhost scripts/deploy.js
 ```
 
 Notas de diseño
