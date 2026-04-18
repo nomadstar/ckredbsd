@@ -1,0 +1,10 @@
+# CkredBSD — OpenBSD subsystem audit index
+# Generated: 2026-04-18T16:50:54Z
+# Priority order: highest attack surface first
+
+sys/netinet (66 files)
+sys/netinet6 (32 files)
+sys/kern (105 files)
+sys/net (121 files)
+lib/libssl (74 files)
+lib/libcrypto (638 files)
