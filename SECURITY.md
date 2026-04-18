@@ -7,7 +7,7 @@ CkredBSD takes security seriously — it is the entire point of this project.
 If you find a vulnerability in CkredBSD or in the OpenBSD codebase that we inherit:
 
 1. **Do not open a public issue.** Public disclosure before a patch is available harms users.
-2. Send a detailed report to: `security@ckredbsd.org`
+2. Send a detailed report to: `ignacio.marambio_z@mail.udp.cl`
 3. Include: description, reproduction steps, affected components, and your assessment of severity.
 4. We will acknowledge within 48 hours and begin triage immediately.
 
