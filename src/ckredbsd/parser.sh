@@ -23,6 +23,7 @@ mkdir -p "${OUTPUT_DIR}"
 AUDIT_PATH=""
 DIFF_MODE=false
 DIFF_RANGE=""
+RUST_SCORE_MODE=false
 
 usage() {
     cat <<USAGE
@@ -43,6 +44,7 @@ while [[ $# -gt 0 ]]; do
     case "$1" in
         --path) AUDIT_PATH="$2"; shift 2 ;; 
         --diff) DIFF_MODE=true; DIFF_RANGE="$2"; shift 2 ;; 
+        --score) RUST_SCORE_MODE=true; shift ;; 
         --help) usage; exit 0 ;; 
         *) echo "Unknown option: $1"; usage; exit 1 ;;
     esac
@@ -64,6 +66,9 @@ REPORT_FILE="${OUTPUT_DIR}/parser-report-${TIMESTAMP}.md"
     echo "- Model: ${MODEL}"
     echo "- Target: ${AUDIT_PATH:-diff:${DIFF_RANGE}}"
     echo "- Chunk size: ${CHUNK_SIZE} lines"
+    if [ "${RUST_SCORE_MODE}" = true ]; then
+        echo "- Mode: Rust suitability scoring"
+    fi
     echo ""
     echo "---"
     echo ""
@@ -80,7 +85,7 @@ else
         echo "Run ./tools/clone-openbsd.sh first."
         exit 1
     fi
-    FILES=$(find "${TARGET}" \( -name '*.c' -o -name '*.h' \) | sort)
+    FILES=$(find "${TARGET}" \( -name '*.c' -o -name '*.h' \) | sed "s#^${CKRED_OPENBSD_SRC}/##" | sort)
 fi
 
 FILE_COUNT=$(echo "${FILES}" | grep -c . || echo 0)
@@ -119,29 +124,34 @@ while IFS= read -r file; do
 
         CHUNK=$(sed -n "${CHUNK_START},${CHUNK_END}p" "${FULL_PATH}")
 
-        PROMPT=$(cat <<'PROMPT'
-You are an AI engineer porting OpenBSD source to the CkredBSD project.
-Analyze the following C code chunk and produce a concise migration report.
+        SCORE_INSTRUCTION=""
+        if [ "${RUST_SCORE_MODE}" = true ]; then
+            SCORE_INSTRUCTION="- Rust suitability score: assign a value from 1 (poor) to 5 (excellent) and explain why."
+        fi
 
-For each chunk, answer in markdown with these sections:
-- Summary: what the code does
-- CkredBSD migration notes: what should change for CkredBSD
-- Rust migration guidance: should this stay in C, be wrapped, or be replaced by Rust, and why
-- Safety issues: any memory, concurrency, or design concerns
-- Suggested next step: one concrete action for a developer
+        PROMPT=$(printf '%s\n' \
+            "You are an AI engineer porting OpenBSD source to the CkredBSD project." \
+            "Analyze the following C code chunk and produce a concise migration report." \
+            "" \
+            "For each chunk, answer in markdown with these sections:" \
+            "- Summary: what the code does" \
+            "- CkredBSD migration notes: what should change for CkredBSD" \
+            "- Rust migration guidance: should this stay in C, be wrapped, or be replaced by Rust, and why" \
+            "- Safety issues: any memory, concurrency, or design concerns" \
+            "- Suggested next step: one concrete action for a developer" \
+            "${SCORE_INSTRUCTION}" \
+            "" \
+            "Respond only in markdown." \
+            "" \
+            "File: ${file}" \
+            "Lines: ${CHUNK_START}-${CHUNK_END}" \
+            "" \
+            '```c' \
+            "${CHUNK}" \
+            '```' \
+        )
 
-Respond only in markdown.
-
-File: ${file}
-Lines: ${CHUNK_START}-${CHUNK_END}
-
-\\`\\`\\`c
-${CHUNK}
-\\`\\`\\`
-PROMPT
-)
-
-        RESPONSE=$(echo "${PROMPT}" | ollama run "${MODEL}" 2>/dev/null || echo "PARSER_ERROR")
+        RESPONSE=$(printf '%s' "${PROMPT}" | ollama run "${MODEL}" 2>/dev/null || echo "PARSER_ERROR")
 
         echo "#### Chunk ${CHUNK_START}-${CHUNK_END}" >> "${REPORT_FILE}"
         echo "" >> "${REPORT_FILE}"
