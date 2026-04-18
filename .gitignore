@@ -1,0 +1,26 @@
+# OpenBSD source tree (cloned separately, not committed)
+src/openbsd/
+
+# Audit logs (generated locally)
+audit/logs/
+audit/config.env
+
+# Build artifacts
+*.o
+*.a
+*.so
+obj/
+
+# Environment
+.env
+*.env.local
+
+# Editor
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
