@@ -1,5 +1,5 @@
 # CkredBSD — OpenBSD subsystem audit index
-# Generated: 2026-04-18T16:50:54Z
+# Generated: 2026-04-18T17:01:12Z
 # Priority order: highest attack surface first
 
 sys/netinet (66 files)
