@@ -6,6 +6,7 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 CONFIG_FILE="${REPO_ROOT}/audit/config.env"
+PARSER_LIB="${REPO_ROOT}/audit/lib/response_parser.sh"
 
 if [ ! -f "${CONFIG_FILE}" ]; then
     echo "ERROR: Audit not configured. Run ./tools/audit-setup.sh first."
@@ -13,6 +14,7 @@ if [ ! -f "${CONFIG_FILE}" ]; then
 fi
 
 source "${CONFIG_FILE}"
+source "${PARSER_LIB}"
 
 if ! command -v ollama >/dev/null 2>&1; then
     echo "ERROR: ollama is not installed or not found in PATH."
@@ -24,6 +26,7 @@ AUDIT_PATH=""
 DIFF_MODE=false
 DIFF_RANGE=""
 SEVERITY_THRESHOLD="${SEVERITY_THRESHOLD:-medium}"
+ALLOW_PARSE_ERRORS=false
 
 usage() {
     echo "Usage: $0 [OPTIONS]"
@@ -32,6 +35,7 @@ usage() {
     echo "  --path <subsystem>     Audit a specific subsystem (e.g. sys/netinet)"
     echo "  --diff <range>         Audit only changed files (e.g. HEAD~1..HEAD)"
     echo "  --severity <level>     Minimum severity to report (low|medium|high|critical)"
+    echo "  --allow-parse-errors   Do not fail run when model output is unparseable"
     echo "  --help                 Show this help"
     echo ""
     echo "Examples:"
@@ -45,6 +49,7 @@ while [[ $# -gt 0 ]]; do
         --path)     AUDIT_PATH="$2"; shift 2 ;;
         --diff)     DIFF_MODE=true; DIFF_RANGE="$2"; shift 2 ;;
         --severity) SEVERITY_THRESHOLD="$2"; shift 2 ;;
+        --allow-parse-errors) ALLOW_PARSE_ERRORS=true; shift ;;
         --help)     usage; exit 0 ;;
         *)          echo "Unknown option: $1"; usage; exit 1 ;;
     esac
@@ -110,7 +115,7 @@ else
         echo "Run ./tools/clone-openbsd.sh first."
         exit 1
     fi
-    FILES=$(find "${TARGET}" -name "*.c" -o -name "*.h" | sort)
+    FILES=$(find "${TARGET}" \( -name "*.c" -o -name "*.h" \) | sort)
 fi
 
 FILE_COUNT=$(echo "${FILES}" | grep -c . || echo 0)
@@ -191,19 +196,26 @@ ${CHUNK}
             exit 1
         fi
 
-        RESPONSE="${RESPONSE_RAW}"
+        RESPONSE="$(printf '%s' "${RESPONSE_RAW}" | ckred_normalize_response)"
+        ckred_classify_response "${RESPONSE}"
+        PARSE_KIND="${CKRED_PARSE_KIND}"
+        PARSE_REASON="${CKRED_PARSE_REASON}"
 
         # Log every raw response so we can inspect what the model returned.
         {
             echo "---"
             echo "CHUNK: ${file}:${CHUNK_START}-${CHUNK_END}"
-            echo "RESPONSE_START"
+            echo "RESPONSE_RAW_START"
+            echo "${RESPONSE_RAW}"
+            echo "RESPONSE_RAW_END"
+            echo "RESPONSE_NORMALIZED_START"
             echo "${RESPONSE}"
-            echo "RESPONSE_END"
+            echo "RESPONSE_NORMALIZED_END"
+            echo "PARSE_KIND: ${PARSE_KIND}"
+            [ -n "${PARSE_REASON}" ] && echo "PARSE_REASON: ${PARSE_REASON}"
         } >> "${LOG_FILE}"
 
-        if [[ "${RESPONSE}" != "NO_FINDINGS" ]] && \
-           echo "${RESPONSE}" | grep -q "SEVERITY:"; then
+        if [ "${PARSE_KIND}" = "finding" ]; then
 
             FINDING_COUNT=$((FINDING_COUNT + 1))
 
@@ -217,8 +229,9 @@ ${CHUNK}
             } >> "${FINDINGS_FILE}"
 
             echo "${TIMESTAMP} | ${file}:${CHUNK_START} | ${RESPONSE}" >> "${LOG_FILE}"
-        elif [[ "${RESPONSE}" != "NO_FINDINGS" ]]; then
-            echo "WARNING: unrecognized model response for ${file}:${CHUNK_START}-${CHUNK_END}" >> "${LOG_FILE}"
+        elif [ "${PARSE_KIND}" = "parse_error" ]; then
+            ERROR_COUNT=$((ERROR_COUNT + 1))
+            echo "WARNING: unparseable model response for ${file}:${CHUNK_START}-${CHUNK_END}: ${PARSE_REASON}" >> "${LOG_FILE}"
         fi
 
         CHUNK_START=$((CHUNK_END + 1))
@@ -239,9 +252,11 @@ echo "Report:          ${FINDINGS_FILE}"
 echo ""
 
 if [ "${FINDING_COUNT}" -eq 0 ]; then
-    echo "No findings were detected."
-    if [ "${ERROR_COUNT}" -gt 0 ]; then
-        echo "However, ${ERROR_COUNT} AI evaluation error(s) occurred."
+    if [ "${ERROR_COUNT}" -eq 0 ]; then
+        echo "No findings were detected."
+    else
+        echo "No verified findings due to parser errors."
+        echo "Parse errors: ${ERROR_COUNT}"
         echo "Check ${LOG_FILE} for details."
     fi
 fi
@@ -251,16 +266,24 @@ if [ "${FINDING_COUNT}" -gt 0 ]; then
     echo "Verified findings are eligible for IMMAC rewards."
 fi
 
-if [ "${FINDING_COUNT}" -eq 0 ]; then
+if [ "${FINDING_COUNT}" -eq 0 ] && [ "${ERROR_COUNT}" -eq 0 ]; then
     {
         echo "## No findings"
         echo ""
         echo "The AI audit did not identify any vulnerabilities in the analyzed files."
-        if [ "${ERROR_COUNT}" -gt 0 ]; then
-            echo ""
-            echo "### Audit warnings"
-            echo "- ${ERROR_COUNT} AI evaluation error(s) occurred during the run."
-            echo "- Consult ${LOG_FILE} for the raw Ollama error output."
-        fi
     } >> "${FINDINGS_FILE}"
+fi
+
+if [ "${ERROR_COUNT}" -gt 0 ]; then
+    {
+        echo "## Audit blocked by parse errors"
+        echo ""
+        echo "- Unparseable model responses: ${ERROR_COUNT}"
+        echo "- Findings count may be incomplete."
+        echo "- Inspect log for chunk-level details: ${LOG_FILE}"
+    } >> "${FINDINGS_FILE}"
+
+    if [ "${ALLOW_PARSE_ERRORS}" != true ]; then
+        exit 2
+    fi
 fi

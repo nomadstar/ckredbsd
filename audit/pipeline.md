@@ -68,6 +68,31 @@ All logs are stored in `audit/logs/` and are immutable once committed.
 ./audit/run.sh --path sys/netinet/
 ```
 
+### Strict parsing behavior
+
+The audit runner now treats unparseable model output as a hard failure.
+If the model output doesn't match either:
+
+- `NO_FINDINGS`, or
+- a structured finding with all required fields
+
+the run exits non-zero and appends a parser-error section to the report.
+
+Use `--allow-parse-errors` only for exploratory debugging.
+
+## Model quality benchmarking
+
+Use the ground-truth dataset in `audit/benchmark/` to measure detection quality:
+
+```bash
+./audit/benchmark/run.sh
+```
+
+The benchmark writes a report in `audit/logs/` with:
+- confusion-matrix counts (TP/TN/FP/FN)
+- precision, recall, F1, and accuracy
+- parse-error diagnostics
+
 ## Hardware requirements
 
 The local AI stage requires:

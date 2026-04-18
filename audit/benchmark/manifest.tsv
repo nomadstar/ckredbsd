@@ -1,0 +1,9 @@
+# id	expected_label	expected_type	file
+v001	vulnerable	buffer_overflow	cases/v001_strcpy_stack_overflow.c
+v002	vulnerable	use_after_free	cases/v002_use_after_free.c
+v003	vulnerable	integer_overflow	cases/v003_allocation_overflow.c
+v004	vulnerable	race_condition	cases/v004_shared_state_race.c
+c001	clean	no_finding	cases/c001_bounded_copy.c
+c002	clean	no_finding	cases/c002_safe_lifecycle.c
+c003	clean	no_finding	cases/c003_checked_allocation.c
+c004	clean	no_finding	cases/c004_mutex_protected_counter.c
