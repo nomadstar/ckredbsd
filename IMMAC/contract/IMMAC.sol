@@ -105,7 +105,8 @@ contract IMMAC {
         require(amount > 0, "No reward");
         require(address(this).balance >= amount, "Insufficient contract funds");
         c.rewarded = true;
-        payable(msg.sender).transfer(amount);
+        (bool sent, ) = payable(msg.sender).call{value: amount}("");
+        require(sent, "Transfer failed");
         emit RewardClaimed(id, msg.sender, amount);
     }
 
@@ -116,6 +117,7 @@ contract IMMAC {
     // Emergency withdraw by owner
     function withdraw(uint256 amountWei, address payable dest) external onlyOwner {
         require(address(this).balance >= amountWei, "Insufficient balance");
-        dest.transfer(amountWei);
+        (bool sent, ) = dest.call{value: amountWei}("");
+        require(sent, "Withdraw failed");
     }
 }
