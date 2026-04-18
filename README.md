@@ -1,4 +1,4 @@
-# CkredBSD
+# CkredBSD 🍷
 
 > *Immaculated till the end*
 
