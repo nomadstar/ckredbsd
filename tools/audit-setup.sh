@@ -59,6 +59,20 @@ fi
 
 echo "      Ollama found: $(ollama --version 2>/dev/null || echo 'unknown version')"
 
+# Choose model automatically when not explicitly set.
+if [ -z "${PREFERRED_MODEL}" ]; then
+    if GPU=$(detect_gpu); then
+        echo "      GPU detected: ${GPU}"
+        PREFERRED_MODEL=$(select_model_by_gpu "${GPU}")
+    else
+        echo "      No compatible GPU detected or lspci missing. Using fallback model."
+        PREFERRED_MODEL="qwen2.5-coder:7b"
+    fi
+fi
+
+echo "      Selected model: ${PREFERRED_MODEL}"
+
+echo ""
 # Check if GPU is being used
 if ollama run --help 2>/dev/null | grep -q "gpu"; then
     echo "      GPU acceleration: available"
