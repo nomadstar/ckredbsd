@@ -6,25 +6,38 @@ set -euo pipefail
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 PREFERRED_MODEL="${CKRED_AUDIT_MODEL:-}"
+PREFERRED_GPU="${CKRED_OLLAMA_GPU:-}"
 
 # Detect the local GPU so we can choose an appropriate Ollama model.
-detect_gpu() {
+detect_gpu_type() {
     if ! command -v lspci &>/dev/null; then
         return 1
     fi
 
     GPU_INFO=$(lspci -nn | grep -E 'VGA|3D' | tr '[:upper:]' '[:lower:]' || true)
-    if echo "${GPU_INFO}" | grep -q 'amd'; then
-        echo amd
-        return 0
-    elif echo "${GPU_INFO}" | grep -q 'nvidia'; then
+    if echo "${GPU_INFO}" | grep -q 'nvidia'; then
         echo nvidia
+        return 0
+    elif echo "${GPU_INFO}" | grep -q 'amd'; then
+        echo amd
         return 0
     elif echo "${GPU_INFO}" | grep -q 'intel'; then
         echo intel
         return 0
     fi
 
+    return 1
+}
+
+is_laptop() {
+    if [ -d /sys/class/power_supply ] && ls /sys/class/power_supply 2>/dev/null | grep -E -q '^BAT|battery'; then
+        return 0
+    fi
+    if [ -r /sys/class/dmi/id/chassis_type ]; then
+        case "$(cat /sys/class/dmi/id/chassis_type)" in
+            8|9|10|14) return 0 ;; # Portable, laptop, notebook, subnotebook
+        esac
+    fi
     return 1
 }
 
@@ -39,6 +52,21 @@ select_model_by_gpu() {
             ;;
         *)
             echo "qwen2.5-coder:7b"
+            ;;
+    esac
+}
+
+select_gpu_backend() {
+    local gpu="$1"
+    case "${gpu}" in
+        nvidia)
+            echo "nvidia"
+            ;;
+        amd)
+            echo "amd"
+            ;;
+        *)
+            echo ""
             ;;
     esac
 }
@@ -61,13 +89,27 @@ echo "      Ollama found: $(ollama --version 2>/dev/null || echo 'unknown versio
 
 # Choose model automatically when not explicitly set.
 if [ -z "${PREFERRED_MODEL}" ]; then
-    if GPU=$(detect_gpu); then
-        echo "      GPU detected: ${GPU}"
-        PREFERRED_MODEL=$(select_model_by_gpu "${GPU}")
+    if GPU_TYPE=$(detect_gpu_type); then
+        echo "      GPU detected: ${GPU_TYPE}"
+        PREFERRED_MODEL=$(select_model_by_gpu "${GPU_TYPE}")
     else
         echo "      No compatible GPU detected or lspci missing. Using fallback model."
         PREFERRED_MODEL="qwen2.5-coder:7b"
     fi
+fi
+
+# Choose Ollama GPU backend when possible.
+if [ -z "${PREFERRED_GPU}" ]; then
+    if [ -z "${GPU_TYPE:-}" ]; then
+        GPU_TYPE=$(detect_gpu_type) || true
+    fi
+    PREFERRED_GPU=$(select_gpu_backend "${GPU_TYPE}")
+fi
+
+if [ -n "${PREFERRED_GPU}" ]; then
+    echo "      Selected GPU backend: ${PREFERRED_GPU}"
+else
+    echo "      No supported Ollama GPU backend selected; will run on CPU."
 fi
 
 echo "      Selected model: ${PREFERRED_MODEL}"
@@ -78,7 +120,14 @@ if ollama run --help 2>/dev/null | grep -q "gpu"; then
     echo "      GPU acceleration: available"
 else
     echo "      WARNING: GPU acceleration may not be configured"
-    echo "      For AMD cards, ensure ROCm is installed and HSA_OVERRIDE_GFX_VERSION is set"
+    if [ "${PREFERRED_GPU}" = "nvidia" ]; then
+        echo "      Detected NVIDIA backend, pero Ollama no reporta GPU en --help."
+        echo "      Asegúrate de usar una versión de Ollama con soporte CUDA/NVIDIA y que nvidia-smi funcione."
+    elif [ "${PREFERRED_GPU}" = "amd" ]; then
+        echo "      Para tarjetas AMD, asegúrate de que ROCm esté instalado y HSA_OVERRIDE_GFX_VERSION configurado."
+    else
+        echo "      Si tu GPU es NVIDIA o AMD, instala el backend adecuado para Ollama."
+    fi
 fi
 
 echo ""
@@ -101,6 +150,7 @@ cat > "${CONFIG_FILE}" << EOF
 # Generated: $(date -u +%Y-%m-%dT%H:%M:%SZ)
 
 CKRED_AUDIT_MODEL="${PREFERRED_MODEL}"
+CKRED_OLLAMA_GPU="${PREFERRED_GPU}"
 CKRED_OPENBSD_SRC="${REPO_ROOT}/src/openbsd"
 CKRED_AUDIT_LOGS="${REPO_ROOT}/audit/logs"
 CKRED_CHUNK_SIZE=400        # lines per chunk sent to AI

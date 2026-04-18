@@ -153,7 +153,12 @@ File: ${file} (lines ${CHUNK_START}-${CHUNK_END})
 ${CHUNK}
 \`\`\`"
 
-        RESPONSE=$(echo "${PROMPT}" | ollama run "${CKRED_AUDIT_MODEL}" 2>/dev/null || echo "AUDIT_ERROR")
+        OLLAMA_ARGS=()
+        if [ -n "${CKRED_OLLAMA_GPU:-}" ]; then
+            OLLAMA_ARGS+=(--gpu "${CKRED_OLLAMA_GPU}")
+        fi
+
+        RESPONSE=$(echo "${PROMPT}" | ollama run "${CKRED_AUDIT_MODEL}" "${OLLAMA_ARGS[@]}" 2>/dev/null || echo "AUDIT_ERROR")
 
         if [[ "${RESPONSE}" != "NO_FINDINGS" ]] && \
            [[ "${RESPONSE}" != "AUDIT_ERROR" ]] && \
