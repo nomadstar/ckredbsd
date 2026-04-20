@@ -62,7 +62,11 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        node-version: [20]
+        # Test both Node 20 and Node 24; workflow opts into Node 24 runtime for JavaScript actions
+        node-version: [20, 24]
+    # Opt into Node.js 24 for JavaScript actions on the runner (see GitHub deprecation notice)
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
     steps:
       - uses: actions/checkout@v4
       - name: Setup Node.js
