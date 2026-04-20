@@ -156,14 +156,14 @@ while IFS= read -r file; do
 
         RESPONSE=$(printf '%s' "${PROMPT}" | ollama run "${MODEL}" 2>/dev/null || echo "PARSER_ERROR")
 
-        cat >> "${REPORT_FILE}" <<EOF
-    #### Chunk ${CHUNK_START}-${CHUNK_END}
+    cat >> "${REPORT_FILE}" <<EOF
+#### Chunk ${CHUNK_START}-${CHUNK_END}
 
-    ```
-    ${RESPONSE}
-    ```
+```
+${RESPONSE}
+```
 
-    EOF
+EOF
 
         CHUNK_START=$((CHUNK_END + 1))
     done
