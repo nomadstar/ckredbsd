@@ -1,0 +1,12 @@
+{
+  "providerUrl": "wss://eth-mainnet.alchemyapi.io/v2/your-key-or-ws-or-http",
+  "watchedAddresses": [
+    "0x1111111111111111111111111111111111111111",
+    "0x2222222222222222222222222222222222222222"
+  ],
+  "abiPath": "", 
+  "email": {
+    "from": "monitor@example.com",
+    "to": "security-team@example.com"
+  }
+}
