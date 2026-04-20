@@ -18,6 +18,11 @@ const providerUrl = process.env.PROVIDER_URL || config.providerUrl;
 if (!providerUrl) { console.error('Missing provider URL. Set PROVIDER_URL or config.providerUrl'); process.exit(1); }
 
 const watched = (process.env.WATCHED_ADDRS ? process.env.WATCHED_ADDRS.split(',') : (config.watchedAddresses || [])).map(a => a.toLowerCase());
+const controlledCfg = (process.env.CONTROLLED_ADDRS ? process.env.CONTROLLED_ADDRS.split(',') : (config.controlledAddresses || [])).map(a => a.toLowerCase());
+
+// dynamic in-memory controlled set - seeded from config and updated from on-chain VerifierSet/owner
+const controlledSet = new Set(controlledCfg);
+const verifiersSet = new Set();
 const abiPath = process.env.ABI_PATH || config.abiPath || '';
 let iface = null;
 if (abiPath && fs.existsSync(path.resolve(abiPath))) {
@@ -136,6 +141,103 @@ async function handleTx(tx, blockNumber) {
     console.warn('Error handling tx', tx.hash, e.message);
   }
 }
+
+// If ABI loaded, attempt to attach to any watched addresses that are contracts (e.g., the IMMAC contract)
+async function setupContractListeners() {
+  if (!iface) return;
+  for (const addr of watched) {
+    try {
+      const code = await provider.getCode(addr);
+      if (!code || code === '0x') continue; // not a contract
+      const contract = new ethers.Contract(addr, iface, provider);
+      console.log('Attaching contract listeners to', addr);
+
+      // initialize controlled set from on-chain state: owner + past VerifierSet events
+      try {
+        const ownerOnChain = await contract.owner();
+        if (ownerOnChain) { controlledSet.add(ownerOnChain.toLowerCase()); }
+        // fetch historical VerifierSet events to build verifier set
+        const filter = contract.filters.VerifierSet();
+        const events = await contract.queryFilter(filter, 0, 'latest');
+        for (const ev of events) {
+          const v = (ev.args && ev.args[0]) ? ev.args[0].toLowerCase() : null;
+          const enabled = (ev.args && ev.args[1]) ? ev.args[1] : false;
+          if (v) {
+            if (enabled) { verifiersSet.add(v); controlledSet.add(v); }
+            else { verifiersSet.delete(v); /* keep controlledSet unchanged on disable? remove to be strict */ controlledSet.delete(v); }
+          }
+        }
+        console.log('Controlled set initialized, owner + verifiers count:', controlledSet.size);
+      } catch (e) {
+        console.warn('Failed to initialize controlled set from chain for', addr, e.message);
+      }
+
+      // ContributionSubmitted(uint256 indexed id, address indexed contributor, bytes32 contentHash, string category)
+      if (contract.filters && contract.filters.ContributionSubmitted) {
+        contract.on('ContributionSubmitted', async (id, contributor, contentHash, category, event) => {
+          const caddr = (contributor || '').toLowerCase();
+          const msg = `ContributionSubmitted id=${id} contributor=${caddr} category=${category}`;
+          console.log(msg);
+          // If contributor is not in controlled set, alert
+          if (!controlled.includes(caddr)) {
+            await sendAlert(`UNCONTROLLED CONTRIBUTOR: ${shortAddr(caddr)}`, `${msg}\nContract: ${addr}\nEvent tx: ${event.transactionHash}`);
+          } else {
+            await sendAlert(`Contribution submitted (controlled): ${shortAddr(caddr)}`, `${msg}\nContract: ${addr}\nEvent tx: ${event.transactionHash}`);
+          }
+        });
+      }
+
+      // ContributionApproved(uint256 indexed id, address indexed verifier, uint256 impactMultiplier, uint256 qualityFactor)
+      if (contract.filters && contract.filters.ContributionApproved) {
+        contract.on('ContributionApproved', async (id, verifier, impactMultiplier, qualityFactor, event) => {
+          const vaddr = (verifier || '').toLowerCase();
+          console.log(`ContributionApproved id=${id} verifier=${vaddr} impact=${impactMultiplier} quality=${qualityFactor}`);
+          // fetch reward via calculateReward (view)
+          let reward = 'unknown';
+          try { reward = (await contract.calculateReward(id)).toString(); } catch (e) { /* ignore */ }
+          let body = `ContributionApproved id=${id}\nverifier=${vaddr}\nimpact=${impactMultiplier}\nquality=${qualityFactor}\ncalculatedRewardWei=${reward}\nContract: ${addr}\nTx: ${event.transactionHash}`;
+          if (!controlled.includes(vaddr)) {
+            await sendAlert(`UNCONTROLLED VERIFIER: ${shortAddr(vaddr)}`, body);
+          } else {
+            await sendAlert(`Contribution approved (controlled verifier): ${shortAddr(vaddr)}`, body);
+          }
+        });
+      }
+
+      // RewardClaimed(uint256 indexed id, address indexed contributor, uint256 amount)
+      if (contract.filters && contract.filters.RewardClaimed) {
+        contract.on('RewardClaimed', async (id, contributor, amount, event) => {
+          const caddr = (contributor || '').toLowerCase();
+          const body = `RewardClaimed id=${id}\ncontributor=${caddr}\namountWei=${amount}\nContract: ${addr}\nTx: ${event.transactionHash}`;
+          await sendAlert(`Reward claimed: ${shortAddr(caddr)}`, body);
+        });
+      }
+
+      // VerifierSet and BaseValueSet can be useful
+      if (contract.filters && contract.filters.VerifierSet) {
+        contract.on('VerifierSet', async (verifier, enabled, event) => {
+          const v = (verifier || '').toLowerCase();
+          try {
+            if (enabled) { verifiersSet.add(v); controlledSet.add(v); }
+            else { verifiersSet.delete(v); controlledSet.delete(v); }
+          } catch (e) {}
+          await sendAlert(`VerifierSet ${v} -> ${enabled}`, `Contract: ${addr}\nTx: ${event.transactionHash}`);
+        });
+      }
+      if (contract.filters && contract.filters.BaseValueSet) {
+        contract.on('BaseValueSet', async (category, value, event) => {
+          await sendAlert(`BaseValueSet ${category} -> ${value}`, `Contract: ${addr}\nTx: ${event.transactionHash}`);
+        });
+      }
+
+    } catch (e) {
+      console.warn('Error attaching to contract', addr, e.message);
+    }
+  }
+}
+
+// start contract listeners asynchronously
+setupContractListeners().catch(e => console.warn('setupContractListeners failed', e.message));
 
 provider.on('block', async (bn) => {
   console.log('New block', bn);
