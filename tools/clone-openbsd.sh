@@ -96,7 +96,7 @@ echo ""
 
 TOTAL_C=$(find "${SRC_DIR}" -name "*.c" 2>/dev/null | wc -l)
 TOTAL_H=$(find "${SRC_DIR}" -name "*.h" 2>/dev/null | wc -l)
-TOTAL_LINES=$(find "${SRC_DIR}" -name "*.c" -o -name "*.h" 2>/dev/null | xargs wc -l 2>/dev/null | tail -1 | awk '{print $1}')
+TOTAL_LINES=$(find "${SRC_DIR}" \( -name "*.c" -o -name "*.h" \) -print0 2>/dev/null | xargs -0 wc -l 2>/dev/null | tail -1 | awk '{print $1}')
 
 echo "      C source files:  ${TOTAL_C}"
 echo "      Header files:    ${TOTAL_H}"

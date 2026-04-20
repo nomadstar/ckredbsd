@@ -30,8 +30,15 @@ detect_gpu_type() {
 }
 
 is_laptop() {
-    if [ -d /sys/class/power_supply ] && ls /sys/class/power_supply 2>/dev/null | grep -E -q '^BAT|battery'; then
-        return 0
+    if [ -d /sys/class/power_supply ]; then
+        for f in /sys/class/power_supply/*; do
+            [ -e "$f" ] || continue
+            case "$(basename "$f")" in
+                BAT*|*battery*)
+                    return 0
+                    ;;
+            esac
+        done
     fi
     if [ -r /sys/class/dmi/id/chassis_type ]; then
         case "$(cat /sys/class/dmi/id/chassis_type)" in

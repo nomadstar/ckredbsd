@@ -13,6 +13,8 @@ if [ ! -f "${CONFIG_FILE}" ]; then
     exit 1
 fi
 
+# shellcheck source=./config.env
+# shellcheck source=./lib/response_parser.sh
 source "${CONFIG_FILE}"
 source "${PARSER_LIB}"
 

@@ -12,6 +12,8 @@ if [ ! -f "${CONFIG_FILE}" ]; then
     exit 1
 fi
 
+# shellcheck source=../audit/config.env
+# shellcheck disable=SC2129  # multiple separate append redirects are intentional for readability
 source "${CONFIG_FILE}"
 
 MODEL="${CKRED_AUDIT_MODEL:-qwen2.5-coder:14b}"
