@@ -1,0 +1,77 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  shellcheck:
+    name: ShellCheck
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install shellcheck
+        run: sudo apt-get update && sudo apt-get install -y shellcheck
+      - name: Run ShellCheck
+        run: |
+          set -euo pipefail
+          find . -type f -name "*.sh" -not -path "./node_modules/*" -print0 | xargs -0 -r shellcheck
+
+  bash_syntax:
+    name: Bash syntax check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check bash syntax
+        run: |
+          set -euo pipefail
+          find . -type f -name "*.sh" -not -path "./node_modules/*" -print0 | xargs -0 -r -n1 bash -n
+
+  node:
+    name: Node tests (IMMAC)
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        node-version: [20]
+    steps:
+      - uses: actions/checkout@v4
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node-version }}
+      - name: Enable Corepack (pnpm)
+        run: |
+          corepack enable || true
+      - name: Install dependencies
+        working-directory: IMMAC/contract
+        run: |
+          set -euo pipefail
+          if [ -f pnpm-lock.yaml ]; then
+            corepack prepare pnpm@latest --activate
+            pnpm install --frozen-lockfile
+          else
+            npm ci
+          fi
+      - name: Run tests
+        working-directory: IMMAC/contract
+        run: |
+          set -euo pipefail
+          if [ -f pnpm-lock.yaml ]; then pnpm test; else npm test; fi
+
+  address_scan:
+    name: Plaintext address scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Run plaintext address scan
+        env:
+          ALERT_WEBHOOK: ${{ secrets.ALERT_WEBHOOK }}
+          GITHUB_BASE_REF: ${{ github.event.pull_request.base.ref || '' }}
+        run: |
+          set -euo pipefail
+          bash tools/monitor/check_plain_addresses.sh
