@@ -24,6 +24,8 @@ ckred_classify_response() {
         "SUGGESTED_FIX"
     )
 
+    # These variables are populated for callers (sourced scripts).
+    # shellcheck disable=SC2034
     CKRED_PARSE_KIND=""
     CKRED_PARSE_REASON=""
 
