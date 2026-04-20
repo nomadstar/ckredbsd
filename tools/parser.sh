@@ -94,11 +94,12 @@ FILE_COUNT=$(echo "${FILES}" | grep -c . || echo 0)
 
 echo "Files to parse: ${FILE_COUNT}"
 
-echo "" >> "${REPORT_FILE}"
+cat >> "${REPORT_FILE}" <<EOF
 
-echo "## Summary" >> "${REPORT_FILE}"
-echo "- Files parsed: ${FILE_COUNT}" >> "${REPORT_FILE}"
-echo "" >> "${REPORT_FILE}"
+## Summary
+- Files parsed: ${FILE_COUNT}
+
+EOF
 
 FILE_NUM=0
 
@@ -155,12 +156,14 @@ while IFS= read -r file; do
 
         RESPONSE=$(printf '%s' "${PROMPT}" | ollama run "${MODEL}" 2>/dev/null || echo "PARSER_ERROR")
 
-        echo "#### Chunk ${CHUNK_START}-${CHUNK_END}" >> "${REPORT_FILE}"
-        echo "" >> "${REPORT_FILE}"
-        echo '```' >> "${REPORT_FILE}"
-        echo "${RESPONSE}" >> "${REPORT_FILE}"
-        echo '```' >> "${REPORT_FILE}"
-        echo "" >> "${REPORT_FILE}"
+        cat >> "${REPORT_FILE}" <<EOF
+    #### Chunk ${CHUNK_START}-${CHUNK_END}
+
+    \`\`\`
+    ${RESPONSE}
+    \`\`\`
+
+    EOF
 
         CHUNK_START=$((CHUNK_END + 1))
     done
