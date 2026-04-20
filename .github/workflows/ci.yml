@@ -85,6 +85,9 @@ jobs:
       - name: Run plaintext address scan
         env:
           ALERT_WEBHOOK: ${{ secrets.ALERT_WEBHOOK }}
+          MAIL_FROM: ${{ secrets.MAIL_FROM }}
+          MAIL_PASSWORD: ${{ secrets.MAIL_PASSWORD }}
+          MAIL_TO: ${{ secrets.MAIL_TO }}
           GITHUB_BASE_REF: ${{ github.event.pull_request.base.ref || '' }}
         run: |
           set -euo pipefail
