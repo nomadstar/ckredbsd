@@ -63,6 +63,8 @@ if [ "$found" -gt 0 ]; then
   fi
 
   echo "Plaintext addresses detected: $found"
+
+  # --- Webhook alert (Slack-style) ---
   if [ -n "${ALERT_WEBHOOK:-}" ]; then
     if command -v jq >/dev/null 2>&1; then
       if payload=$(jq -n --arg repo "$(basename "$REPO_ROOT")" --arg count "$found" '{text: ("Plaintext addresses found in "+$repo+": "+$count)}' 2>/dev/null); then
@@ -75,6 +77,31 @@ if [ "$found" -gt 0 ]; then
     fi
     curl -s -X POST -H "Content-Type: application/json" -d "$payload" "$ALERT_WEBHOOK" || true
   fi
+
+  # --- Gmail SMTP alert ---
+  if [ -n "${MAIL_FROM:-}" ] && [ -n "${MAIL_PASSWORD:-}" ] && [ -n "${MAIL_TO:-}" ]; then
+    REPO_NAME=$(basename "$REPO_ROOT")
+    RUN_URL="${GITHUB_SERVER_URL:-https://github.com}/${GITHUB_REPOSITORY:-$REPO_NAME}/actions/runs/${GITHUB_RUN_ID:-0}"
+    mail_body="From: CkRedBSD CI <${MAIL_FROM}>
+To: ${MAIL_TO}
+Subject: [ckredbsd] Alerta: ${found} direccion(es) Ethereum en texto plano detectada(s)
+Content-Type: text/plain; charset=UTF-8
+
+Se detectaron ${found} direccion(es) Ethereum en texto plano en el repositorio '${REPO_NAME}'.
+
+Revisa los logs del workflow para ver los archivos afectados:
+${RUN_URL}
+
+-- CkRedBSD CI"
+    curl --silent --ssl-reqd \
+      --url "smtps://smtp.gmail.com:465" \
+      --user "${MAIL_FROM}:${MAIL_PASSWORD}" \
+      --mail-from "${MAIL_FROM}" \
+      --mail-rcpt "${MAIL_TO}" \
+      --upload-file - <<< "$mail_body" || true
+    echo "Email alert sent to ${MAIL_TO}."
+  fi
+
   exit 1
 fi
 
