@@ -56,3 +56,7 @@ ckred_classify_response() {
     CKRED_PARSE_REASON="response did not contain NO_FINDINGS or structured finding fields"
     CKRED_PARSE_KIND="parse_error"
 }
+
+# Export these globals so callers (scripts that `source` this file) receive them
+# and to make intent explicit for static analyzers like ShellCheck.
+export CKRED_PARSE_KIND CKRED_PARSE_REASON

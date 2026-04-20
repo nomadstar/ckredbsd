@@ -17,7 +17,8 @@ jobs:
       - name: Run ShellCheck
         run: |
           set -euo pipefail
-          find . -type f -name "*.sh" -not -path "./node_modules/*" -print0 | xargs -0 -r shellcheck
+          # Use -x so shellcheck follows sourced files and respects source= directives
+          find . -type f -name "*.sh" -not -path "./node_modules/*" -print0 | xargs -0 -r shellcheck -x
 
   bash_syntax:
     name: Bash syntax check
