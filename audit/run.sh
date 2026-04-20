@@ -14,8 +14,10 @@ if [ ! -f "${CONFIG_FILE}" ]; then
 fi
 
 # shellcheck source=./config.env
-# shellcheck source=./lib/response_parser.sh
+# shellcheck disable=SC1091
 source "${CONFIG_FILE}"
+# shellcheck source=./lib/response_parser.sh
+# shellcheck disable=SC1090
 source "${PARSER_LIB}"
 
 if ! command -v ollama >/dev/null 2>&1; then
