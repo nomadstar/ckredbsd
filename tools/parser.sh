@@ -159,9 +159,9 @@ while IFS= read -r file; do
         cat >> "${REPORT_FILE}" <<EOF
     #### Chunk ${CHUNK_START}-${CHUNK_END}
 
-    \`\`\`
+    ```
     ${RESPONSE}
-    \`\`\`
+    ```
 
     EOF
 
