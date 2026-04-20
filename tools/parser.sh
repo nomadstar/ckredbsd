@@ -13,6 +13,7 @@ if [ ! -f "${CONFIG_FILE}" ]; then
 fi
 
 # shellcheck source=../audit/config.env
+# shellcheck disable=SC1091
 # shellcheck disable=SC2129  # multiple separate append redirects are intentional for readability
 source "${CONFIG_FILE}"
 
@@ -156,6 +157,7 @@ while IFS= read -r file; do
 
         RESPONSE=$(printf '%s' "${PROMPT}" | ollama run "${MODEL}" 2>/dev/null || echo "PARSER_ERROR")
 
+    # shellcheck disable=SC2006
     cat >> "${REPORT_FILE}" <<EOF
 #### Chunk ${CHUNK_START}-${CHUNK_END}
 
