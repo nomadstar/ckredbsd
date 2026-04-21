@@ -86,7 +86,7 @@ SUGGESTED_FIX: ...'
     echo "|------|----------|-----------|--------|"
 } > "${REPORT_FILE}"
 
-while IFS=$'\t' read -r id expected_label expected_type file_path; do
+while IFS=$'\t' read -r id expected_label _expected_type file_path; do
     [ -z "${id}" ] && continue
     [[ "${id}" =~ ^# ]] && continue
 
