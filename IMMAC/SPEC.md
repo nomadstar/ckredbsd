@@ -34,9 +34,14 @@ IMMAC is not a speculative cryptocurrency. It is a coordination mechanism.
 reward = base_value × impact_multiplier × quality_factor
 
 base_value:        defined per category by community governance
-impact_multiplier: 1.0 (low) to 10.0 (critical) based on verified impact  
-quality_factor:    0.5 (minimal) to 2.0 (exceptional) based on peer review
+impact_multiplier: 1.00 (baseline) to 5.00 (critical) — scaled by 100 on-chain (100–500)
+quality_factor:    1.00 (baseline) to 5.00 (exceptional) — scaled by 100 on-chain (100–500)
 ```
+
+> Both multipliers are encoded as integers scaled by 100 in the smart contract
+> (e.g. 125 = 1.25×). The maximum allowed value per factor is 500 (5×), enforced
+> on-chain by `MAX_MULTIPLIER`. This cap prevents reward inflation in the event of
+> a compromised verifier.
 
 ## Architecture
 

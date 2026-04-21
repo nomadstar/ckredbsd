@@ -99,8 +99,6 @@ while IFS=$'\t' read -r id expected_label expected_type file_path; do
     code=$(cat "${case_file}")
     prompt="${audit_prompt}
 
-Ground-truth expected type (for context only, do not echo): ${expected_type}
-
 File: ${file_path}
 \`\`\`c
 ${code}

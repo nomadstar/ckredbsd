@@ -12,28 +12,14 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-      - name: Create audit config for ShellCheck
-        if: always()
-        run: |
-          mkdir -p audit
-          cat > audit/config.env <<'EOF'
-          # CI helper config for ShellCheck
-          CKRED_AUDIT_MODEL="${{ secrets.CKRED_AUDIT_MODEL || 'qwen2.5-coder:7b' }}"
-          CKRED_OLLAMA_GPU="${{ secrets.CKRED_OLLAMA_GPU || '' }}"
-          CKRED_OPENBSD_SRC="${{ github.workspace }}/src/openbsd"
-          CKRED_AUDIT_LOGS="${{ github.workspace }}/audit/logs"
-          CKRED_CHUNK_SIZE=400
-          CKRED_PRIORITY_FIRST=true
-          EOF
-        shell: bash -e {0}
       - name: Install shellcheck
         run: sudo apt-get update && sudo apt-get install -y shellcheck
       - name: Create audit config
         run: |
           mkdir -p audit
           cat > audit/config.env <<'EOF'
-          CKRED_AUDIT_MODEL="${{ secrets.CKRED_AUDIT_MODEL }}"
-          CKRED_OLLAMA_GPU="${{ secrets.CKRED_OLLAMA_GPU }}"
+          CKRED_AUDIT_MODEL="qwen2.5-coder:7b"
+          CKRED_OLLAMA_GPU=""
           CKRED_OPENBSD_SRC="${GITHUB_WORKSPACE}/src/openbsd"
           CKRED_AUDIT_LOGS="${GITHUB_WORKSPACE}/audit/logs"
           CKRED_CHUNK_SIZE=400

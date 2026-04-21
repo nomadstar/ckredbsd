@@ -93,12 +93,17 @@ Revisa los logs del workflow para ver los archivos afectados:
 ${RUN_URL}
 
 -- CkRedBSD CI"
+    # Write credentials to a temp netrc file to avoid exposing password in process list
+    NETRC_TMP=$(mktemp)
+    chmod 600 "$NETRC_TMP"
+    printf 'machine smtp.gmail.com login %s password %s\n' "${MAIL_FROM}" "${MAIL_PASSWORD}" > "$NETRC_TMP"
     curl --silent --ssl-reqd \
       --url "smtps://smtp.gmail.com:465" \
-      --user "${MAIL_FROM}:${MAIL_PASSWORD}" \
+      --netrc-file "$NETRC_TMP" \
       --mail-from "${MAIL_FROM}" \
       --mail-rcpt "${MAIL_TO}" \
       --upload-file - <<< "$mail_body" || true
+    rm -f "$NETRC_TMP"
     echo "Email alert sent to ${MAIL_TO}."
   fi
 

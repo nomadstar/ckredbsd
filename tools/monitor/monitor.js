@@ -60,6 +60,9 @@ const provider = providerUrl.startsWith('ws') || providerUrl.startsWith('wss')
   ? new ethers.WebSocketProvider(providerUrl)
   : new ethers.JsonRpcProvider(providerUrl);
 
+// Bounded processed-tx cache — prevents unbounded memory growth in long-running processes.
+// Evicts the oldest entry when the cap is reached (FIFO approximation via insertion order).
+const MAX_PROCESSED = 10_000;
 const processed = new Set();
 
 async function sendAlert(subject, body) {
@@ -79,6 +82,10 @@ function shortAddr(a){ return (a||'').slice(0,6)+'...'+(a||'').slice(-4); }
 async function handleTx(tx, blockNumber) {
   if (!tx || !tx.hash) return;
   if (processed.has(tx.hash)) return;
+  // Evict oldest entry if at capacity
+  if (processed.size >= MAX_PROCESSED) {
+    processed.delete(processed.values().next().value);
+  }
   processed.add(tx.hash);
 
   const to = tx.to ? tx.to.toLowerCase() : null;
@@ -179,7 +186,7 @@ async function setupContractListeners() {
           const msg = `ContributionSubmitted id=${id} contributor=${caddr} category=${category}`;
           console.log(msg);
           // If contributor is not in controlled set, alert
-          if (!controlled.includes(caddr)) {
+          if (!controlledSet.has(caddr)) {
             await sendAlert(`UNCONTROLLED CONTRIBUTOR: ${shortAddr(caddr)}`, `${msg}\nContract: ${addr}\nEvent tx: ${event.transactionHash}`);
           } else {
             await sendAlert(`Contribution submitted (controlled): ${shortAddr(caddr)}`, `${msg}\nContract: ${addr}\nEvent tx: ${event.transactionHash}`);
@@ -196,7 +203,7 @@ async function setupContractListeners() {
           let reward = 'unknown';
           try { reward = (await contract.calculateReward(id)).toString(); } catch (e) { /* ignore */ }
           let body = `ContributionApproved id=${id}\nverifier=${vaddr}\nimpact=${impactMultiplier}\nquality=${qualityFactor}\ncalculatedRewardWei=${reward}\nContract: ${addr}\nTx: ${event.transactionHash}`;
-          if (!controlled.includes(vaddr)) {
+          if (!controlledSet.has(vaddr)) {
             await sendAlert(`UNCONTROLLED VERIFIER: ${shortAddr(vaddr)}`, body);
           } else {
             await sendAlert(`Contribution approved (controlled verifier): ${shortAddr(vaddr)}`, body);

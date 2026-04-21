@@ -130,12 +130,12 @@ else
     echo "      WARNING: installed Ollama does not advertise --gpu support"
     OLLAMA_GPU_SUPPORTED=false
     if [ "${PREFERRED_GPU}" = "nvidia" ]; then
-        echo "      Detected NVIDIA backend, pero Ollama no reporta --gpu en --help."
-        echo "      Asegúrate de usar una versión de Ollama con soporte CUDA/NVIDIA y que nvidia-smi funcione."
+        echo "      Detected NVIDIA backend but Ollama does not report --gpu support."
+        echo "      Make sure you are using an Ollama build with CUDA/NVIDIA support and that nvidia-smi works."
     elif [ "${PREFERRED_GPU}" = "amd" ]; then
-        echo "      Para tarjetas AMD, asegúrate de que ROCm esté instalado y HSA_OVERRIDE_GFX_VERSION configurado."
+        echo "      For AMD cards, make sure ROCm is installed and HSA_OVERRIDE_GFX_VERSION is set."
     else
-        echo "      Si tu GPU es NVIDIA o AMD, instala el backend adecuado para Ollama."
+        echo "      If your GPU is NVIDIA or AMD, install the appropriate Ollama backend."
     fi
 fi
 

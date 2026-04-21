@@ -239,6 +239,8 @@ ${CHUNK}
         fi
 
         CHUNK_START=$((CHUNK_END + 1))
+        # Brief pause between chunks to avoid saturating VRAM on large files
+        sleep 0.3
     done
 
 done <<< "${FILES}"
