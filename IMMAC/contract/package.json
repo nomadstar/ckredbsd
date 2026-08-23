@@ -7,6 +7,13 @@
     "ethers": "^6.14.0",
     "hardhat": "^2.28.6"
   },
+  "pnpm": {
+    "overrides": {
+      "brace-expansion@<1.1.18": "1.1.18",
+      "brace-expansion@>=2.0.0 <2.1.4": "2.1.4",
+      "brace-expansion@>=5.0.0 <5.0.9": "5.0.9"
+    }
+  },
   "scripts": {
     "test": "HARDHAT_DISABLE_TELEMETRY_PROMPT=true hardhat test"
   }
